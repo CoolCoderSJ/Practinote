@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PractiNote</title>
+    <link rel="stylesheet" href="https://css.furret.dev/furretcss/v2/full/dark.min.css" />
+    <style>
+        a {
+            text-decoration: none !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Connect Notion</h1>
+    <p>Follow the steps below to connect with Notion.</p>
+    <br>
+    <form method="post" action="notion-intermediary">
+        <label for="token">Notion Token:</label>
+        <input id="token" type="password" name="token" placeholder="Enter your Notion token...">
+        <br>
+        <label for="page">Page Link:</label>
+        <input id="page" type="url" name="page" placeholder="Enter the link to your notes page..."> 
+        <button style="width: 100%;">Connect</button>
+    </form>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PractiNote</title>
+    <link rel="stylesheet" href="https://css.furret.dev/furretcss/v2/full/dark.min.css" />
+    <style>
+        a {
+            text-decoration: none !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Connect Docs</h1>
+    <p>Your Google Docs ID can be found from your Google Docs link. For example, if my Google Docs link is <code>https://docs.google.com/document/d/1APzlySia--------8tM9pi9iF_kb_s/edit</code>, then my ID is <code>1APzlySia--------8tM9pi9iF_kb_s</code></p>
+    <br>
+    <form method="post" action="docs-intermediary">
+        <label for="page">Page ID:</label>
+        <input id="page" type="text" name="page" placeholder="Enter your Google Docs ID..."> 
+        <button style="width: 100%;">Import</button>
+    </form>
+</body>
+</html>
