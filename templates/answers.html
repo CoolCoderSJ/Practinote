@@ -24,9 +24,9 @@
 </head>
 <body>
     <h1>Test Answers</h1>
-    <p>Your score: --/10</p>
+    <p>Your score: {{score}}/10</p>
     <div style="width: 66%; margin-left: 0;">
-    <form method="post" action="new">
+    <form method="post" action="/new/{{testid}}">
         <input type="submit" value="Take another test">
     </form>
     <a href="/">
@@ -34,45 +34,10 @@
     </a> 
     </div>
     
-    <h4>Question 1</h4>
-    <p style="color: lightgreen;">Your Answer: aaaaa</p>
-    <p>Correct Answer: aaaaa</p>
-
-    <h4>Question 2</h4>
-    <p style="color: red;">Your Answer: aaaaa</p>
-    <p>Correct Answer: aaaaa</p>
-
-    <h4>Question 3</h4>
-    <p style="color: lightgreen;">Your Answer: aaaaa</p>
-    <p>Correct Answer: aaaaa</p>
-
-
-    <h4>Question 4</h4>
-    <p style="color: red;">Your Answer: aaaaa</p>
-    <p>Correct Answer: aaaaa</p>
-
-    <h4>Question 5</h4>
-    <p style="color: lightgreen;">Your Answer: aaaaa</p>
-    <p>Correct Answer: aaaaa</p>
-
-    <h4>Question 6</h4>
-    <p style="color: red;">Your Answer: aaaaa</p>
-    <p>Correct Answer: aaaaa</p>
-
-    <h4>Question 7</h4>
-    <p style="color: lightgreen;">Your Answer: aaaaa</p>
-    <p>Correct Answer: aaaaa</p>
-
-    <h4>Question 8</h4>
-    <p style="color: red;">Your Answer: aaaaa</p>
-    <p>Correct Answer: aaaaa</p>
-
-    <h4>Question 9</h4>
-    <p style="color: lightgreen;">Your Answer: aaaaa</p>
-    <p>Correct Answer: aaaaa</p>
-
-    <h4>Question 10</h4>
-    <p style="color: red;">Your Answer: aaaaa</p>
-    <p>Correct Answer: aaaaa</p>
+    {% for i in range(10) %}
+    <h4>{{test['questions'][i]}}</h4>
+    <p style="color: {% if test['close'][i] == True %}lightgreen{% else %}red{% endif %};">Your Answer: {{test['user_ans'][i]}}</p>
+    <p>Correct Answer: {{test['answers'][i]}}</p>
+    {% endfor %}
 </body>
 </html>

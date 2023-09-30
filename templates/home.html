@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>PractiNote</title>
     <link rel="stylesheet" href="https://css.furret.dev/furretcss/v2/full/dark.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
     <style>
         #connect a {
             text-decoration: none !important;
@@ -16,6 +17,28 @@
             display: flex;
             width: 100%;
             gap: 10px;
+        }
+        h5, .side {
+            padding-left: 0px;
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        h5 span, .side form {
+            color: red;
+            cursor: pointer;
+            scale: 0.8
+        }
+        form {
+            margin: 0;
+            width: fit-content;
+        }
+        .side form {
+            scale: 1;
+            padding-top: 16px;
+        }
+        .side {
+            width: 100%;
         }
     </style>
 </head>
@@ -44,10 +67,20 @@
     </div>
 
     <br>
-    <h1>Past Tests</h1>
+    <h1>All Notes</h1>
+    {% for note, tests in res.items() %}
+    <h5>{{note}} <span><form method="post" action="/delete/note/{{ titleToId[note] }}"><i class="fa-regular fa-trash-can" onclick="this.parentElement.submit()"></i></form></span></h5>
+    {% for test in tests %}
+    <div class="side">
+    <a href="/test/{{test['$id']}}">
+        <p>Test {{tests.index(test)+1}} {% if test['close'] != [] %} ({{test['close'].count(True)}}/10) {%endif%} </p>
+    </a>
+    <form method="post" action="/delete/test/{{ test['$id'] }}">
+        <i class="fa-regular fa-trash-can fa-2x" onclick="this.parentElement.submit()"></i>
+    </form>
+    </div>
+    {% endfor %}
     <br>
-    <a href="/test/1"><p>AP HUG Test 1</p></a>
-    <br>
-    <a href="/test/2"><p>AP HUG Test 2</p></a>
+    {% endfor %}
 </body>
 </html>

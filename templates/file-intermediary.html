@@ -13,9 +13,12 @@
 <body>
     <h1>Upload File</h1>
     <br>
-    <form method="post" action="file-intermediary">
+    <form method="post" action="file-intermediary" enctype="multipart/form-data">
         <label for="file">Upload File:</label>
         <input id="file" type="file" name="file" placeholder="Upload a file...">
+        <br>
+        <label for="name">Name:</label>
+        <input id="name" type="text" name="name" placeholder="Enter a name...">
         <button style="width: 100%;">Import</button>
     </form>
 </body>

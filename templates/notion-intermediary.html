@@ -12,11 +12,24 @@
 </head>
 <body>
     <h1>Connect Notion</h1>
-    <p>Follow the steps below to connect with Notion.</p>
+    {% if token == "" %}
+    <p>Follow the steps below to connect with Notion-</p>
+    <ol>
+        <li>Visit <a href="https://www.notion.so/my-integrations">https://www.notion.so/my-integrations</a></li>
+        <li><img src="https://sharex.shuchir.dev/u/9MjibS.png" style="height: 175px;"></li>
+        <li><img src="https://sharex.shuchir.dev/u/heKpwb.png" style="height: 175px;"></li>
+        <li><img src="https://sharex.shuchir.dev/u/rHNhR7.png" style="height: 175px;"></li>
+        <li><img src="https://sharex.shuchir.dev/u/amnDwl.png" style="height: 175px;"></li>
+        <li>The text you just copied is your Notion token.</li>
+        <li>Visit the Notion page you want to use.</li>
+        <li><img src="https://sharex.shuchir.dev/u/RnDadz.png" style="height: 175px;"></li>
+        <li>Once you allow access, you can copy the page url and enter it below. Feel free to remove all of the integration's permissions except for Read content.</li>
+    </ol>
+    {%endif%}
     <br>
     <form method="post" action="notion-intermediary">
-        <label for="token">Notion Token:</label>
-        <input id="token" type="password" name="token" placeholder="Enter your Notion token...">
+        <label for="token">Notion Token {% if token != "" %}(autofilled from database){%endif%}:</label>
+        <input id="token" type="password" name="token" value="{{token}}" placeholder="Enter your Notion token...">
         <br>
         <label for="page">Page Link:</label>
         <input id="page" type="url" name="page" placeholder="Enter the link to your notes page..."> 
