@@ -329,12 +329,20 @@ def newtest(testid):
     note = db.get_document("data", "notes", noteRef)
     ctxdoc = db.list_documents("data", "chatctx", queries=[Query.equal("noteRef", noteRef)])['documents'][0]
     ctx = ctxdoc['ctx']
-    print(ctx)
+    # print(ctx)
     qstr = ""
     tests = get_all_docs("data", "tests", queries=[Query.equal("noteRef", noteRef)])
+    amtoftests = len(tests)
     for test in tests:
         qstr += "\n\n" + "\n".join(test['questions'])
-    questions, answers, message, text = generate_questions(note['notestext'][0:8000], history=json.loads(ctx), promptaddition=f"\n\nThis is a new test. Do not re-use any questions you have already used. This is important- make sure every question is a different one than ones you have used in the past. Make sure you included the answers in the correct format. Write 'Questions' and make a numbered list with only the questions. Then write 'Answers' and make a numbered list with the answers. Your questions should NOT be equal to or similar to one of the following:\n{qstr}")
+    testnum = amtoftests 
+    notelength = len(note['notestext'])
+    index = testnum*7900
+    toIndex = index + 7900
+    if index > notelength: index = notelength-7900
+    if toIndex > notelength: toIndex = notelength
+    print(index, toIndex)
+    questions, answers, message, text = generate_questions(note['notestext'][index:toIndex], promptaddition=f"\n\nThis is a new test. Do not re-use any questions you have already used. This is important- make sure every question is a different one than ones you have used in the past. Make sure you included the answers in the correct format. Write 'Questions' and make a numbered list with only the questions. Then write 'Answers' and make a numbered list with the answers.")
     print(questions, answers)
     test = db.create_document("data", "tests", "unique()", {
         "noteRef": note["$id"],
