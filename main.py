@@ -8,10 +8,13 @@ from PyPDF2 import PdfReader
 from dotenv import load_dotenv
 load_dotenv()
 
-from appwrite.client import Client
-from appwrite.services.databases import Databases
-from appwrite.query import Query
-from appwrite.services.users import Users
+from flata import Flata, where, Query
+from flata.storages import JSONStorage
+db = Flata('db.json', storage=JSONStorage)
+users_db = db.table("users")
+notion_tokens_db = db.table("notion_tokens")
+tests_db = db.table("tests")
+notes_db = db.table("notes")
 
 from argon2 import PasswordHasher
 ph = PasswordHasher()
@@ -21,12 +24,6 @@ from pydrive2.drive import GoogleDrive
 
 import cohere
 
-client = (Client()
-    .set_endpoint(f'{os.environ["APPWRITE_HOST"]}/v1') 
-    .set_project(os.environ['APPWRITE_ID'])               
-    .set_key(os.environ['APPWRITE_KEY']))   
-db = Databases(client)
-users = Users(client)
 
 settings = {
     "client_config_backend": "service",
@@ -67,44 +64,15 @@ def generate_questions(input, history=[], promptaddition=""):
     answers = [answer for answer in answers if answer != ""]
     return questions, answers, message, text
 
-def get_all_docs(data, collection, queries=[]):
-    docs = []
-    haslimit = False
-    for query in queries:
-        print(query)
-        if query.startswith("limit"): 
-            print(int(query.split("limit(")[1].split(")")[0]))
-            if int(query.split("limit(")[1].split(")")[0]) <= 100: print("true"); haslimit = True
-    
-    if not haslimit:
-        queries.append(Query.limit(100))
-        querylength = len(queries)
-        while True:
-            if docs:
-                queries.append(Query.cursorAfter(docs[-1]['$id']))
-            try:
-                results = db.list_documents(data, collection, queries=queries)
-            except: return docs
-            if len(results['documents']) == 0:
-                break
-            results = results['documents']
-            docs += results
-            print(data, collection, len(docs))
-            if len(queries) != querylength:
-                queries.pop()
-    else:
-        return db.list_documents(data, collection, queries=queries)['documents']
-    return docs
-
 @app.route('/')
 def index():
     if not "user" in session:
         return redirect(url_for('login'))
-    notes = get_all_docs("data", "notes", queries=[Query.equal("userId", session['user'])])
+    notes = notes_db.search(where('userId') == session['user'])
     res = {}
     titleToId = {}
     for note in notes:
-        res[note['title']] = get_all_docs("data", "tests", queries=[Query.equal("noteRef", note['$id'])])
+        res[note['title']] = tests_db.search(where('noteRef') == note['$id'])
         titleToId[note['title']] = note['$id']
 
     return render_template('home.html', res=res, titleToId=titleToId)
@@ -117,9 +85,12 @@ def login():
         username = request.form['username']
         password = request.form['password']
 
-        allusers = users.list(queries=[Query.equal('name', username)])['users']
+        allusers = users_db.search(where('name') == username)
         if len(allusers) == 0:
-            sessid = users.create('unique()', name=username, password=password)['$id']
+            sessid = users_db.insert({
+                "name": username,
+                "password": ph.hash(password)
+            })['$id']
             session['user'] = sessid
             return redirect(url_for('index'))
         
@@ -139,7 +110,7 @@ def login():
 @app.route("/notion-intermediary", methods=['GET', 'POST'])
 def notion_inter():
     if request.method == "GET":
-        tokens = db.list_documents("tokens", "notion", queries=[Query.equal("userId", session['user'])])['documents']
+        tokens = notion_tokens_db.search(where('userId') == session['user'])
         if len(tokens) == 0:
             token = ""
         else:
@@ -147,23 +118,23 @@ def notion_inter():
         return render_template('notion-intermediary.html', token=token)
     
     token = request.form['token']
-    tokens = db.list_documents("tokens", "notion", queries=[Query.equal("userId", session['user'])])['documents']
+    tokens = notion_tokens_db.search(where('userId') == session['user'])
     if len(tokens) == 0:
-        db.create_document("tokens", "notion", "unique()", {"userId": session['user'], "notion_token": token})
+        notion_tokens_db.insert({"userId": session['user'], "notion_token": token})
     else:
-        db.update_document("tokens", "notion", tokens[0]['$id'], {"notion_token": token})
+        notion_tokens_db.update({"userId": session['user'], "notion_token": token}, where('userId') == session['user'])
     os.environ['NOTION_TOKEN'] = token
     page = request.form['page']
     md = StringExporter(block_id=page.split("-")[-1].split("?")[0]).export()
     print(len(str(md)))
-    note = db.create_document("data", "notes", "unique()", {
+    note = notes_db.insert({
         "userId": session['user'],
         "notestext": str(md),
         "title": " ".join(page.split("?")[0].split("/")[-1].split("-")[:-1])
     })
     questions, answers, message, text = generate_questions(md[0:8000])
     print(questions, answers)
-    test = db.create_document("data", "tests", "unique()", {
+    test = tests_db.insert({
         "noteRef": note["$id"],
         "questions": questions,
         "answers": answers,
@@ -178,10 +149,6 @@ def notion_inter():
             "message": text
         }
     ]
-    db.create_document("data", "chatctx", "unique()", {
-        "noteRef": note["$id"],
-        "ctx": json.dumps(ctx)
-    })
 
     return redirect('/test/' + test['$id'])
 
@@ -194,31 +161,18 @@ def docs_inter():
     title = file['title']
     content = str(file.GetContentString("text/plain"))
 
-    note = db.create_document("data", "notes", "unique()", {
+    note = notes_db.insert({
         "userId": session['user'],
         "notestext": content,
         "title": title
     })
+
     questions, answers, message, text = generate_questions(content[0:8000])
     print(questions, answers)
-    test = db.create_document("data", "tests", "unique()", {
+    test = tests_db.insert({
         "noteRef": note["$id"],
         "questions": questions,
         "answers": answers,
-    })
-
-    ctx = [
-        {
-            "user_name": "User",
-            "message": message
-        }, {
-            "user_name": "Chatbot",
-            "message": text
-        }
-    ]
-    db.create_document("data", "chatctx", "unique()", {
-        "noteRef": note["$id"],
-        "ctx": json.dumps(ctx)
     })
 
     return redirect('/test/' + test['$id'])
@@ -247,31 +201,17 @@ def file_inter():
             content += page.extract_text()
         os.remove(filename)
     print(content)
-    note = db.create_document("data", "notes", "unique()", {
+    note = notes_db.insert({
         "userId": session['user'],
         "notestext": content,
         "title": request.form['name']
     })
     questions, answers, message, text = generate_questions(content[0:8000])
     print(questions, answers)
-    test = db.create_document("data", "tests", "unique()", {
+    test = tests_db.insert({
         "noteRef": note["$id"],
         "questions": questions,
         "answers": answers,
-    })
-
-    ctx = [
-        {
-            "user_name": "User",
-            "message": message
-        }, {
-            "user_name": "Chatbot",
-            "message": text
-        }
-    ]
-    db.create_document("data", "chatctx", "unique()", {
-        "noteRef": note["$id"],
-        "ctx": json.dumps(ctx)
     })
 
     return redirect('/test/' + test['$id'])
@@ -279,11 +219,11 @@ def file_inter():
 @app.route('/test/<testid>', methods=['GET', 'POST'])
 def test(testid):
     if request.method == "GET":
-        test = db.get_document("data", "tests", testid)
+        test = tests_db.get(where('$id') == testid)
         if test['user_ans']:
             return redirect("/answers/"+testid)
         return render_template('test.html', test=test, testid=testid)
-    test = db.get_document("data", "tests", testid)
+    test = tests_db.get(where('$id') == testid)
     answers = test['answers']
     user_ans = []
     accuracy = []
@@ -314,24 +254,22 @@ def test(testid):
         print(text)
     print(accuracy)
 
-    db.update_document("data", "tests", testid, {"user_ans": user_ans, "close": accuracy})
+    tests_db.update({"user_ans": user_ans, "close": accuracy}, where('$id') == testid)
     return redirect("/answers/"+testid)
 
 @app.route('/answers/<testid>', methods=['GET'])
 def answers(testid):
-    test = db.get_document("data", "tests", testid)
+    test = tests_db.get(where('$id') == testid)
     score = test['close'].count(True)
     return render_template('answers.html', test=test, testid=testid, score=score)
 
 @app.route("/new/<testid>", methods=['POST'])
 def newtest(testid):
-    noteRef = db.get_document("data", "tests", testid)['noteRef']
-    note = db.get_document("data", "notes", noteRef)
-    ctxdoc = db.list_documents("data", "chatctx", queries=[Query.equal("noteRef", noteRef)])['documents'][0]
-    ctx = ctxdoc['ctx']
+    noteRef = tests_db.get(where('$id') == testid)['noteRef']
+    note = notes_db.get(where('$id') == noteRef)
     # print(ctx)
     qstr = ""
-    tests = get_all_docs("data", "tests", queries=[Query.equal("noteRef", noteRef)])
+    tests = tests_db.search(where('noteRef') == noteRef)
     amtoftests = len(tests)
     for test in tests:
         qstr += "\n\n" + "\n".join(test['questions'])
@@ -344,43 +282,26 @@ def newtest(testid):
     print(index, toIndex)
     questions, answers, message, text = generate_questions(note['notestext'][index:toIndex], promptaddition=f"\n\nThis is a new test. Do not re-use any questions you have already used. This is important- make sure every question is a different one than ones you have used in the past. Make sure you included the answers in the correct format. Write 'Questions' and make a numbered list with only the questions. Then write 'Answers' and make a numbered list with the answers.")
     print(questions, answers)
-    test = db.create_document("data", "tests", "unique()", {
-        "noteRef": note["$id"],
+    test = tests_db.insert({
+        "noteRef": noteRef,
         "questions": questions,
         "answers": answers,
-    })
-
-    newctx = [
-        {
-            "user_name": "User",
-            "message": message
-        }, {
-            "user_name": "Chatbot",
-            "message": text
-        }
-    ]
-    ctx = json.loads(ctx)
-    ctx += newctx
-    db.update_document("data", "chatctx", ctxdoc['$id'], {
-        "noteRef": note["$id"],
-        "ctx": json.dumps(ctx)
     })
 
     return redirect('/test/' + test['$id'])    
 
 @app.route("/delete/note/<noteid>", methods=['POST'])
 def deletenote(noteid):
-    note = db.get_document("data", "notes", noteid)
-    tests = get_all_docs("data", "tests", queries=[Query.equal("noteRef", noteid)])
+    note = notes_db.get(where('$id') == noteid)
+    tests = tests_db.search(where('noteRef') == noteid)
     for test in tests:
-        db.delete_document("data", "tests", test['$id'])
-    db.delete_document("data", "notes", noteid)
+        tests_db.remove(where('$id') == test['$id'])
+    notes_db.remove(where('$id') == noteid)
     return redirect("/")
 
 @app.route("/delete/test/<testid>", methods=['POST'])
 def deletetest(testid):
-    test = db.get_document("data", "tests", testid)
-    db.delete_document("data", "tests", testid)
+    tests_db.remove(where('$id') == testid)
     return redirect("/")
 
 

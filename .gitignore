@@ -153,3 +153,4 @@ cython_debug/
 
 service-secrets.json
 flask_session/
+db.json
