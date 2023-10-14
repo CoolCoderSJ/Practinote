@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>PractiNote</title>
     <link rel="stylesheet" href="https://css.furret.dev/furretcss/v2/full/dark.min.css" />
+    <script src="/static/loading_handler.js"></script>
     <style>
         a {
             text-decoration: none !important;
@@ -24,9 +25,11 @@
 </head>
 <body>
     <h1>Test Answers</h1>
-    <p>Your score: {{score}}/10</p>
+    <p>Your score: {{score}}/{{test['questions'] | count}}</p>
     <div style="width: 66%; margin-left: 0;">
     <form method="post" action="/new/{{testid}}">
+        <label for="questions">Number of Questions:</label>
+        <input id="questions" type="number" name="questions" placeholder="Number of questions to generate..." value="10"> 
         <input type="submit" value="Take another test">
     </form>
     <a href="/">
@@ -34,7 +37,7 @@
     </a> 
     </div>
     
-    {% for i in range(10) %}
+    {% for i in range(test['questions'] | count) %}
     <h4>{{test['questions'][i]}}</h4>
     <p style="color: {% if test['close'][i] == True %}lightgreen{% else %}red{% endif %};">Your Answer: {{test['user_ans'][i]}}</p>
     <p>Correct Answer: {{test['answers'][i]}}</p>

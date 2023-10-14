@@ -5,6 +5,7 @@
     <title>PractiNote</title>
     <link rel="stylesheet" href="https://css.furret.dev/furretcss/v2/full/dark.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+    <script src="/static/loading_handler.js"></script>
     <style>
         #connect a {
             text-decoration: none !important;
@@ -69,13 +70,15 @@
     <br>
     <h1>All Notes</h1>
     {% for note, tests in res.items() %}
-    <h5>{{note}} <span><form method="post" action="/delete/note/{{ titleToId[note] }}"><i class="fa-regular fa-trash-can" onclick="this.parentElement.submit()"></i></form></span></h5>
+    <h5 style="margin-bottom: 0px;">{{note}} <span><form method="post" action="/delete/note/{{ titleToId[note] }}"><i class="fa-regular fa-trash-can" onclick="this.parentElement.submit()"></i></form></span></h5>
+    <a style="margin-top: 0px;" href="/notes/{{ titleToId[note] }}"><p>View Notes</p></a>
+    <br>
     {% for test in tests %}
     <div class="side">
-    <a href="/test/{{test['$id']}}">
-        <p>Test {{tests.index(test)+1}} {% if test['close'] != [] %} ({{test['close'].count(True)}}/10) {%endif%} </p>
+    <a href="/test/{{test['id']}}">
+        <p>Test {{tests.index(test)+1}} {% if 'close' in test %} {% if test['close'] != [] %} ({{test['close'].count(True)}}/{{test['questions'] | count}}) {%endif%}{% endif %} </p>
     </a>
-    <form method="post" action="/delete/test/{{ test['$id'] }}">
+    <form method="post" action="/delete/test/{{ test['id'] }}">
         <i class="fa-regular fa-trash-can fa-2x" onclick="this.parentElement.submit()"></i>
     </form>
     </div>

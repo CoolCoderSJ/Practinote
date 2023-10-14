@@ -24,6 +24,8 @@ from pydrive2.drive import GoogleDrive
 
 import cohere
 
+import markdown
+
 
 settings = {
     "client_config_backend": "service",
@@ -43,8 +45,10 @@ Session(app)
 
 co = cohere.Client(os.environ['COHERE'])
 
-def generate_questions(input, history=[], promptaddition=""):
-    message = f'You are given the following notes taken during a class: {input}. \n\nFrom these notes, generate 10 test questions and their answers. Respond in the format \nQuestions\n1. \n2. \n3. \n4. \n5. \n6. \n7. \n8. \n9. \n10. \n\nAnswers\n1.\n2. \n3. \n4. \n5. \n6. \n7. \n8. \n9. \n10. List all of the questions first, then list all of the answers.'+promptaddition
+def generate_questions(input, history=[], promptaddition="", questions=10):
+    questions = int(questions)
+    qstr = "\n".join([f"{i+1}." for i in range(questions)])
+    message = f'You are given the following notes taken during a class: {input}. \n\nFrom these notes, generate {questions} test questions and their answers. Respond in the format \nQuestions\n{qstr}\nAnswers\n{qstr} List all of the questions first, then list all of the answers.'+promptaddition
     print (message)
     response = co.chat( 
     model='command',
@@ -72,8 +76,8 @@ def index():
     res = {}
     titleToId = {}
     for note in notes:
-        res[note['title']] = tests_db.search(where('noteRef') == note['$id'])
-        titleToId[note['title']] = note['$id']
+        res[note['title']] = tests_db.search(where('noteRef') == note['id'])
+        titleToId[note['title']] = note['id']
 
     return render_template('home.html', res=res, titleToId=titleToId)
 
@@ -90,8 +94,95 @@ def login():
             sessid = users_db.insert({
                 "name": username,
                 "password": ph.hash(password)
-            })['$id']
+            })['id']
             session['user'] = sessid
+            sampleNotes = notes_db.insert({
+                "userId": session['user'],
+                "notestext":"""# Class Notes
+
+**Subject:** Introduction to Biology
+
+**Date:** [Date]
+
+**Topic:** Cell Structure and Function
+
+## I. Introduction to Cells
+- Cells are the basic units of life.
+- **Cell theory:** All living organisms are composed of cells, and cells arise from pre-existing cells.
+- **Two main types of cells:** prokaryotic and eukaryotic.
+
+## II. Prokaryotic Cells
+- Simple structure, lacking membrane-bound organelles.
+- **Examples:** Bacteria and Archaea.
+- **Key features:**
+  - Cell membrane
+  - Cytoplasm
+  - DNA (nucleoid)
+  - Ribosomes
+- No nucleus; DNA is found in the nucleoid region.
+
+## III. Eukaryotic Cells
+- More complex, with membrane-bound organelles.
+- **Examples:** Animals, plants, fungi, and protists.
+- **Key features:**
+  - Cell membrane
+  - Cytoplasm
+  - Nucleus (membrane-bound)
+  - Membrane-bound organelles:
+    - Endoplasmic reticulum
+    - Golgi apparatus
+    - Mitochondria
+    - Chloroplasts (plants)
+    - Lysosomes
+    - Vacuoles
+
+## IV. Plasma (Cell) Membrane
+- **Functions:**
+  - Boundary, selective barrier
+  - Regulates passage of substances in and out of the cell
+- Composed of a lipid bilayer with embedded proteins.
+- **Selective permeability:** Allows some molecules to pass while blocking others.
+
+## V. Nucleus
+- Control center of the cell.
+- Contains genetic material (DNA) organized into chromosomes.
+- Surrounded by the nuclear envelope with nuclear pores for communication.
+
+## VI. Endoplasmic Reticulum (ER)
+- **Rough ER:** Studded with ribosomes; involved in protein synthesis.
+- **Smooth ER:** Synthesizes lipids and detoxifies substances.
+
+## VII. Golgi Apparatus
+- Modifies, sorts, and packages proteins and lipids for transport.
+
+## VIII. Mitochondria
+- Powerhouses of the cell, generating ATP (energy) through cellular respiration.
+- Have their own DNA (circular) and divide independently.
+
+## IX. Chloroplasts (Plants)
+- Site of photosynthesis, converting sunlight into chemical energy.
+- Contain chlorophyll for capturing light energy.
+
+## X. Lysosomes
+- Vesicles containing enzymes for intracellular digestion and waste removal.
+
+## XI. Vacuoles
+- Storage sacs for various substances, including water, nutrients, and waste.
+
+## XII. Conclusion
+- Cells are the building blocks of life, and their structure determines their function.
+- Prokaryotic and eukaryotic cells differ in complexity and organelles.
+- Understanding cell structure is essential for comprehending life processes.
+""",
+                "title": "Sample Biology Notes"
+            })
+            questions, answers, message, text = generate_questions(sampleNotes['notestext'][0:8000])
+            print(questions, answers)
+            test = tests_db.insert({
+                "noteRef": sampleNotes['id'],
+                "questions": questions,
+                "answers": answers,
+            })
             return redirect(url_for('index'))
         
         user = allusers[0]
@@ -101,7 +192,7 @@ def login():
             flash("Incorrect password", "error")
             return render_template('login.html')
     
-        sessid = user['$id']
+        sessid = user['id']
         session['user'] = sessid
         return redirect(url_for('index'))
 
@@ -132,25 +223,15 @@ def notion_inter():
         "notestext": str(md),
         "title": " ".join(page.split("?")[0].split("/")[-1].split("-")[:-1])
     })
-    questions, answers, message, text = generate_questions(md[0:8000])
+    questions, answers, message, text = generate_questions(md[0:8000], questions=request.form['questions'])
     print(questions, answers)
     test = tests_db.insert({
-        "noteRef": note["$id"],
+        "noteRef": note["id"],
         "questions": questions,
         "answers": answers,
     })
 
-    ctx = [
-        {
-            "user_name": "User",
-            "message": message
-        }, {
-            "user_name": "Chatbot",
-            "message": text
-        }
-    ]
-
-    return redirect('/test/' + test['$id'])
+    return redirect('/test/' + str(test['id']))
 
 
 @app.route("/docs-intermediary", methods=['GET', 'POST'])
@@ -167,15 +248,15 @@ def docs_inter():
         "title": title
     })
 
-    questions, answers, message, text = generate_questions(content[0:8000])
+    questions, answers, message, text = generate_questions(content[0:8000], questions=request.form['questions'])
     print(questions, answers)
     test = tests_db.insert({
-        "noteRef": note["$id"],
+        "noteRef": note["id"],
         "questions": questions,
         "answers": answers,
     })
 
-    return redirect('/test/' + test['$id'])
+    return redirect('/test/' + str(test['id']))
 
 @app.route("/file-intermediary", methods=['GET', 'POST'])
 def file_inter():
@@ -206,24 +287,25 @@ def file_inter():
         "notestext": content,
         "title": request.form['name']
     })
-    questions, answers, message, text = generate_questions(content[0:8000])
+    questions, answers, message, text = generate_questions(content[0:8000], questions=request.form['questions'])
     print(questions, answers)
     test = tests_db.insert({
-        "noteRef": note["$id"],
+        "noteRef": note["id"],
         "questions": questions,
         "answers": answers,
     })
 
-    return redirect('/test/' + test['$id'])
+    return redirect('/test/' + str(test['id']))
 
-@app.route('/test/<testid>', methods=['GET', 'POST'])
+@app.route('/test/<int:testid>', methods=['GET', 'POST'])
 def test(testid):
     if request.method == "GET":
-        test = tests_db.get(where('$id') == testid)
-        if test['user_ans']:
-            return redirect("/answers/"+testid)
+        test = tests_db.get(where('id') == testid)
+        print(test)
+        if "user_ans" in test:
+            return redirect("/answers/"+str(testid))
         return render_template('test.html', test=test, testid=testid)
-    test = tests_db.get(where('$id') == testid)
+    test = tests_db.get(where('id') == testid)
     answers = test['answers']
     user_ans = []
     accuracy = []
@@ -254,19 +336,26 @@ def test(testid):
         print(text)
     print(accuracy)
 
-    tests_db.update({"user_ans": user_ans, "close": accuracy}, where('$id') == testid)
-    return redirect("/answers/"+testid)
+    tests_db.update({"user_ans": user_ans, "close": accuracy}, where('id') == testid)
+    return redirect("/answers/"+str(testid))
 
-@app.route('/answers/<testid>', methods=['GET'])
+
+@app.route("/notes/<int:noteid>", methods=['GET'])
+def notes(noteid):
+    note = notes_db.get(where('id') == noteid)['notestext']
+    return render_template('notes.html', content=markdown.markdown(note), title=notes_db.get(where('id') == noteid)['title'])
+
+
+@app.route('/answers/<int:testid>', methods=['GET'])
 def answers(testid):
-    test = tests_db.get(where('$id') == testid)
+    test = tests_db.get(where('id') == testid)
     score = test['close'].count(True)
     return render_template('answers.html', test=test, testid=testid, score=score)
 
-@app.route("/new/<testid>", methods=['POST'])
+@app.route("/new/<int:testid>", methods=['POST'])
 def newtest(testid):
-    noteRef = tests_db.get(where('$id') == testid)['noteRef']
-    note = notes_db.get(where('$id') == noteRef)
+    noteRef = tests_db.get(where('id') == testid)['noteRef']
+    note = notes_db.get(where('id') == noteRef)
     # print(ctx)
     qstr = ""
     tests = tests_db.search(where('noteRef') == noteRef)
@@ -280,7 +369,7 @@ def newtest(testid):
     if index > notelength: index = notelength-7900
     if toIndex > notelength: toIndex = notelength
     print(index, toIndex)
-    questions, answers, message, text = generate_questions(note['notestext'][index:toIndex], promptaddition=f"\n\nThis is a new test. Do not re-use any questions you have already used. This is important- make sure every question is a different one than ones you have used in the past. Make sure you included the answers in the correct format. Write 'Questions' and make a numbered list with only the questions. Then write 'Answers' and make a numbered list with the answers.")
+    questions, answers, message, text = generate_questions(note['notestext'][index:toIndex], questions=request.form['questions'], promptaddition=f"\n\nThis is a new test. Do not re-use any questions you have already used. This is important- make sure every question is a different one than ones you have used in the past. Make sure you included the answers in the correct format. Write 'Questions' and make a numbered list with only the questions. Then write 'Answers' and make a numbered list with the answers.")
     print(questions, answers)
     test = tests_db.insert({
         "noteRef": noteRef,
@@ -288,20 +377,20 @@ def newtest(testid):
         "answers": answers,
     })
 
-    return redirect('/test/' + test['$id'])    
+    return redirect('/test/' + str(test['id'])) 
 
-@app.route("/delete/note/<noteid>", methods=['POST'])
+@app.route("/delete/note/<int:noteid>", methods=['POST'])
 def deletenote(noteid):
-    note = notes_db.get(where('$id') == noteid)
+    note = notes_db.get(where('id') == noteid)
     tests = tests_db.search(where('noteRef') == noteid)
     for test in tests:
-        tests_db.remove(where('$id') == test['$id'])
-    notes_db.remove(where('$id') == noteid)
+        tests_db.remove(where('id') == test['id'])
+    notes_db.remove(where('id') == noteid)
     return redirect("/")
 
-@app.route("/delete/test/<testid>", methods=['POST'])
+@app.route("/delete/test/<int:testid>", methods=['POST'])
 def deletetest(testid):
-    tests_db.remove(where('$id') == testid)
+    tests_db.remove(where('id') == testid)
     return redirect("/")
 
 

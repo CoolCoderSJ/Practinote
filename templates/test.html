@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>PractiNote</title>
     <link rel="stylesheet" href="https://css.furret.dev/furretcss/v2/full/dark.min.css" />
+    <script src="/static/loading_handler.js"></script>
     <style>
         a {
             text-decoration: none !important;
@@ -17,7 +18,7 @@
     <form method="post" action="/test/{{testid}}">
         <input type="hidden" name="testId" value="{{ testid }}">
 
-        {% for i in range(10) %}
+        {% for i in range(test['questions'] | count) %}
         <label for="{{i+1}}">{{ test['questions'][i] }}</label>
         <input id="{{i+1}}" type="text" name="{{i+1}}" placeholder="Enter your answer..."><br>
         {% endfor %}
